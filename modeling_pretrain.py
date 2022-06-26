@@ -50,7 +50,7 @@ class PretrainVisionTransformerEncoder(nn.Module):
             # sine-cosine positional embeddings 
             self.pos_embed = get_sinusoid_encoding_table(num_patches, embed_dim)
 
-        dpr = [x.item() for x in torch.linspace(0, drop_path_rate, depth)]  # stochastic depth decay rule
+        dpr = [x.item() for x in torch.linspace(0, drop_path_rate, depth)]  # stochastic depth decay rule  ; list 12
         self.blocks = nn.ModuleList([
             Block(
                 dim=embed_dim, num_heads=num_heads, mlp_ratio=mlp_ratio, qkv_bias=qkv_bias, qk_scale=qk_scale,
@@ -91,14 +91,14 @@ class PretrainVisionTransformerEncoder(nn.Module):
         self.head = nn.Linear(self.embed_dim, num_classes) if num_classes > 0 else nn.Identity()
 
     def forward_features(self, x, mask):
-        x = self.patch_embed(x)
+        x = self.patch_embed(x)    #[2,196,,768]
         
         # cls_tokens = self.cls_token.expand(batch_size, -1, -1) 
         # x = torch.cat((cls_tokens, x), dim=1)
         x = x + self.pos_embed.type_as(x).to(x.device).clone().detach()
 
         B, _, C = x.shape
-        x_vis = x[~mask].reshape(B, -1, C) # ~mask means visible
+        x_vis = x[~mask].reshape(B, -1, C) # ~mask means visible  [2,49,768]   // x[~mask]:[98,768]   ; x[mask]:[294,768]
 
         for blk in self.blocks:
             x_vis = blk(x_vis)
@@ -260,8 +260,8 @@ class PretrainVisionTransformer(nn.Module):
 
     def forward(self, x, mask):
         
-        x_vis = self.encoder(x, mask) # [B, N_vis, C_e]
-        x_vis = self.encoder_to_decoder(x_vis) # [B, N_vis, C_d]
+        x_vis = self.encoder(x, mask) # [B, N_vis, C_e]  [2,49,768]
+        x_vis = self.encoder_to_decoder(x_vis) # [B, N_vis, C_d]   [2,49,384]
 
         B, N, C = x_vis.shape
         
@@ -270,9 +270,9 @@ class PretrainVisionTransformer(nn.Module):
         expand_pos_embed = self.pos_embed.expand(B, -1, -1).type_as(x).to(x.device).clone().detach()
         pos_emd_vis = expand_pos_embed[~mask].reshape(B, -1, C)
         pos_emd_mask = expand_pos_embed[mask].reshape(B, -1, C)
-        x_full = torch.cat([x_vis + pos_emd_vis, self.mask_token + pos_emd_mask], dim=1)
+        x_full = torch.cat([x_vis + pos_emd_vis, self.mask_token + pos_emd_mask], dim=1)  #[2,196,384]
         # notice: if N_mask==0, the shape of x is [B, N_mask, 3 * 16 * 16]
-        x = self.decoder(x_full, pos_emd_mask.shape[1]) # [B, N_mask, 3 * 16 * 16]
+        x = self.decoder(x_full, pos_emd_mask.shape[1]) # [B, N_mask, 3 * 16 * 16]  [2,147,768]
 
         return x
 

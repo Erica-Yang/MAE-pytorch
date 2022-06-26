@@ -63,7 +63,7 @@ def train_one_epoch(model: torch.nn.Module, data_loader: Iterable, optimizer: to
             labels = images_patch[bool_masked_pos].reshape(B, -1, C)
 
         with torch.cuda.amp.autocast():
-            outputs = model(images, bool_masked_pos)
+            outputs = model(images, bool_masked_pos)   #[2,147,768]
             loss = loss_func(input=outputs, target=labels)
 
         loss_value = loss.item()
